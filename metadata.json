@@ -1,0 +1,6 @@
+{
+  "name": "OrçaEng - Sistema de Orçamentação de Obras & Gerador Python",
+  "description": "Sistema profissional de orçamentação para engenharia civil com banco SINAPI, cálculo de BDI, Curva ABC, Cronograma Físico-Financeiro, exportação Excel/PDF e scripts Python automatizados.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
