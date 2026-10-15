@@ -678,24 +678,6 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
             </span>
           </button>
 
-          {/* Sub-Aba 4: INSUMOS GENÉRICOS & LISTA FINAL PARA COTAÇÃO POR FORNECEDOR */}
-          <button
-            type="button"
-            onClick={() => setSubAba('genericos')}
-            className={`pb-3 px-4 flex items-center gap-2 border-b-2 transition whitespace-nowrap cursor-pointer ${
-              subAba === 'genericos'
-                ? 'border-emerald-600 text-emerald-950 bg-emerald-50 rounded-t-lg font-black'
-                : 'border-transparent text-emerald-800 hover:text-emerald-950 hover:bg-emerald-50/50 rounded-t-lg'
-            }`}
-            title="Insumos genéricos com botão de futuros fornecedores e lista final consolidada por fornecedor"
-          >
-            <Users className="w-4 h-4 text-emerald-600" />
-            <span>Insumos Genéricos & RFQ</span>
-            <span className="text-[10px] font-mono px-2 py-0.2 rounded-full bg-emerald-600 text-white font-black shadow-xs">
-              Lista Final
-            </span>
-          </button>
-
           {/* Sub-Aba 5: 4 Cartões Amarelos & Pastas de Fornecedores */}
           <button
             type="button"
@@ -1126,26 +1108,6 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
                   <span>CRIAR INSUMO</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSubAba('genericos')}
-                  className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-amber-400 font-black text-xs uppercase tracking-wider rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer border border-amber-400/30"
-                  title="Insumos genéricos para cotação e lista final consolidada por fornecedor"
-                >
-                  <Users className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
-                  <span>INSUMOS GENÉRICOS (RFQ)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => abrirCotacaoInsumo(null)}
-                  className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
-                  title="Digitar fornecedores e contatos para perguntar o valor no WhatsApp"
-                >
-                  <MessageCircle className="w-4 h-4 stroke-[2.5]" />
-                  <span>INSUMO PARA COTAÇÃO</span>
                 </button>
               </div>
             </div>

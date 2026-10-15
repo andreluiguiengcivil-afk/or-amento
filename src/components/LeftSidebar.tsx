@@ -121,25 +121,6 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
             </span>
           </button>
 
-          {/* INSUMOS GENÉRICOS & LISTA FINAL POR FORNECEDOR */}
-          <button
-            type="button"
-            onClick={() => setActiveView('insumos-genericos')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl transition cursor-pointer ${
-              activeView === 'insumos-genericos' 
-                ? 'bg-emerald-600 text-white font-black shadow-sm' 
-                : 'text-emerald-300 hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Users className={`w-4 h-4 ${activeView === 'insumos-genericos' ? 'text-white' : 'text-emerald-400'} stroke-[2.2]`} />
-              <span>Insumos Genéricos (RFQ)</span>
-            </div>
-            <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${activeView === 'insumos-genericos' ? 'bg-emerald-950 text-emerald-200' : 'bg-emerald-500/20 text-emerald-300'}`}>
-              COTAÇÃO
-            </span>
-          </button>
-
           {/* 4 Cartões Amarelos & Pastas */}
           <button
             type="button"

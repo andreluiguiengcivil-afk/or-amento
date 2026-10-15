@@ -344,17 +344,6 @@ export default function App() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setActiveView('insumos-genericos')}
-                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                      activeView === 'insumos-genericos'
-                        ? 'bg-white text-emerald-800 shadow-sm border border-emerald-300 font-black'
-                        : 'text-emerald-800 hover:text-emerald-950 hover:bg-emerald-50'
-                    }`}
-                  >
-                    <span>Insumos Genéricos & RFQ</span>
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => setActiveView('insumos-novo')}
                     className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer ${
                       activeView === 'insumos-novo' || activeView === 'fontes-proprias' || activeView === 'insumos-proprios'
@@ -390,9 +379,6 @@ export default function App() {
               )}
               {activeView === 'insumos-precos' && (
                 <CadastroInsumosComposicoesView abaAtivaInicial="precos-fornecedores" />
-              )}
-              {activeView === 'insumos-genericos' && (
-                <CadastroInsumosComposicoesView abaAtivaInicial="genericos" />
               )}
               {(activeView === 'insumos-pesquisar' || activeView === 'sinapi') && (
                 <SinapiDatabaseView

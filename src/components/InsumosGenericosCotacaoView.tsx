@@ -911,19 +911,6 @@ export const InsumosGenericosCotacaoView: React.FC<InsumosGenericosCotacaoViewPr
                     {/* AÇÕES E BOTÃO DE COTAÇÃO SOLICITADO */}
                     <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
                       
-                      {/* BOTÃO PRINCIPAL SOLICITADO PELO USUÁRIO */}
-                      <button
-                        type="button"
-                        onClick={() => setInsumoSelecionadoParaCotar(item)}
-                        className="py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
-                        title="Adicionar e gerenciar futuros fornecedores para este insumo genérico"
-                      >
-                        <MessageCircle className="w-4 h-4 stroke-[2.5]" />
-                        <span>INSUMOS PARA COTAÇÃO & FUTUROS FORNECEDORES</span>
-                        <span className="w-5 h-5 rounded-full bg-emerald-800/80 text-[10px] flex items-center justify-center font-mono">
-                          {totalFornecedores}
-                        </span>
-                      </button>
 
                       <button
                         type="button"

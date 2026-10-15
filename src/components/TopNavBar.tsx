@@ -185,15 +185,6 @@ export const TopNavBar: React.FC<NavigationProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => handleItemClick(() => setActiveView('insumos-genericos'))}
-                  className="w-full flex items-center gap-2.5 px-4 py-2 bg-emerald-950/60 hover:bg-emerald-900/60 text-left font-bold text-emerald-300 cursor-pointer border-y border-slate-800"
-                >
-                  <Users className="w-4 h-4 text-emerald-400 stroke-[2.5]" />
-                  <span>Insumos Genéricos & Lista Final (RFQ)</span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => handleItemClick(() => { onNovoInsumo(); setActiveView('insumos-novo'); })}
                   className="w-full flex items-center gap-2.5 px-4 py-2 hover:bg-slate-800 text-left font-medium hover:text-amber-400 cursor-pointer"
                 >

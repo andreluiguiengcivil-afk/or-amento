@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { X, Sparkles, Send, HardHat, Lightbulb, Check, ArrowRight, Bot } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
 import { ProjetoOrcamento } from '../types/orcamento';
 import { BANCO_SINAPI } from '../data/sinapiDatabase';
 import { formatarMoeda } from '../utils/bdiCalculator';
@@ -37,38 +36,46 @@ export const AiAssistantModal: React.FC<AiModalProps> = ({
     setCarregando(true);
 
     try {
-      // Tentar usar Google GenAI se houver chave configurada
-      const apiKey = (import.meta as any).env?.VITE_GEMINI_API_KEY || (typeof process !== 'undefined' ? process.env?.GEMINI_API_KEY : '');
-      
-      if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
-        const ai = new GoogleGenAI({ apiKey });
-        const systemPrompt = `Você é um Engenheiro Civil Sênior especialista em Orçamentação de Obras, Engenharia de Custos, bases SINAPI e SICRO da Caixa Econômica Federal e acórdãos do TCU (especialmente Acórdão 2622/2013 para BDI). Responda sempre em português do Brasil com dados técnicos realistas, coeficientes de consumo, unidades de medida usuais e referências normativas. Projeto atual: ${projeto.nome}, Área: ${projeto.areaConstruidaM2} m².`;
+      // Chamada via rota segura server-side
+      const res = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mensagem: texto,
+          projeto: {
+            nome: projeto.nome,
+            areaConstruidaM2: projeto.areaConstruidaM2,
+            bdiConfig: projeto.bdiConfig,
+          },
+        }),
+      });
 
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `${systemPrompt}\n\nPergunta do Engenheiro: ${texto}`,
-        });
-
-        const respostaTexto = response.text || 'Não foi possível gerar resposta no momento.';
-        setRespostas(prev => [...prev, { remetente: 'ia', texto: respostaTexto }]);
-      } else {
-        // Motor Especialista Integrado de Engenharia de Custos (Instantâneo & offline)
-        await new Promise(r => setTimeout(r, 600));
-        let respostaEspecialista = '';
-
-        const lower = texto.toLowerCase();
-        if (lower.includes('aço') || lower.includes('concreto') || lower.includes('consumo')) {
-          respostaEspecialista = `### 📐 Análise de Consumos Típicos em Estruturas de Concreto Armado:\n\nPara residências e pequenos edifícios (Padrão Normal a Alto):\n- **Taxa de Armadura:** 80 a 110 kg de aço CA-50 por m³ de concreto estrutural.\n- **Fôrmas:** 10 a 12 m² de área de contato por m³ de concreto.\n- **Volume de Concreto por Área:** ~0,18 a 0,22 m³ de concreto por m² de área construída.\n\nNo seu projeto (${projeto.areaConstruidaM2} m²):\n- Volume estimado de concreto: **~33 a 36 m³** (muito próximo aos seus 34 m³ cadastrados no SINAPI 103672!)\n- Consumo de aço estimado: **~2.800 a 3.400 kg** (seus itens somam ~3.270 kg de CA-50 + CA-60, proporção excelente!).`;
-        } else if (lower.includes('bdi') || lower.includes('tcu') || lower.includes('lucro')) {
-          respostaEspecialista = `### 📊 Análise do BDI da Obra (Acórdão 2622/2013 TCU):\n\nO BDI cadastrado no projeto está em **${((projeto.bdiConfig.ac + projeto.bdiConfig.sg + projeto.bdiConfig.r + projeto.bdiConfig.df + projeto.bdiConfig.l) * 1.1).toFixed(2)}%**.\n- **Administração Central (AC):** ${projeto.bdiConfig.ac}% (Faixa TCU: 3,00% a 5,50% -> **Adequado**)\n- **Seguros & Garantias:** ${projeto.bdiConfig.sg}% (Faixa TCU: 0,80% a 1,00% -> **Conforme**)\n- **Lucro Operacional (L):** ${projeto.bdiConfig.l}% (Faixa TCU: 6,16% a 8,96% -> **Margem Saudável**)\n- **Tributos:** PIS (${projeto.bdiConfig.pis}%) + COFINS (${projeto.bdiConfig.cofins}%) + ISS (${projeto.bdiConfig.iss}%) = ${(projeto.bdiConfig.pis + projeto.bdiConfig.cofins + projeto.bdiConfig.iss).toFixed(2)}%.\n\nRecomendação: Seu BDI está juridicamente blindado para licitações e contratações privadas.`;
-        } else if (lower.includes('cub') || lower.includes('m2') || lower.includes('custo')) {
-          respostaEspecialista = `### 🏗️ Custo Paramétrico e Referência CUB/m² (Sinduscon):\n\nPara o padrão residencial atual:\n- **CUB R-1 Padrão Alto (SP):** ~R$ 2.950,00 a R$ 3.450,00 por m² (apenas custo direto global).\n- **Orçamento Atual:** Cerca de R$ 1.800 a R$ 2.400/m² para etapas estruturais e acabamento básico.\n\nLembre-se que o CUB não inclui: fundações especiais, projetos executivos, taxas de prefeitura, paisagismo externo e aparelhos de ar-condicionado.`;
-        } else {
-          respostaEspecialista = `Com base nas melhores práticas do SINAPI / IBRAOP para a obra **"${projeto.nome}"**:\n\n1. **Revisão da Curva ABC:** Priorize a cotação de Concreto Usinado fck 25 MPa, Aço CA-50 e Alvenaria Cerâmica, pois representam mais de 60% do valor da etapa estrutural.\n2. **Encargos Sociais:** Verifique se sua empresa optou pela Desoneração da Folha (CPRB 4,5% sobre faturamento) para aplicar os encargos de 84,04% ao invés de 114,78% na mão de obra horista.\n3. **Python Automation:** Utilize o script \`app_orcamento.py\` na aba Python para simular cenários de compra em lote com os fornecedores!`;
+      if (res.ok) {
+        const data = await res.json();
+        if (data.resposta) {
+          setRespostas(prev => [...prev, { remetente: 'ia', texto: data.resposta }]);
+          return;
         }
-
-        setRespostas(prev => [...prev, { remetente: 'ia', texto: respostaEspecialista }]);
       }
+
+      // Motor Especialista Integrado de Engenharia de Custos (Instantâneo & offline)
+      await new Promise(r => setTimeout(r, 600));
+      let respostaEspecialista = '';
+
+      const lower = texto.toLowerCase();
+      if (lower.includes('aço') || lower.includes('concreto') || lower.includes('consumo')) {
+        respostaEspecialista = `### 📐 Análise de Consumos Típicos em Estruturas de Concreto Armado:\n\nPara residências e pequenos edifícios (Padrão Normal a Alto):\n- **Taxa de Armadura:** 80 a 110 kg de aço CA-50 por m³ de concreto estrutural.\n- **Fôrmas:** 10 a 12 m² de área de contato por m³ de concreto.\n- **Volume de Concreto por Área:** ~0,18 a 0,22 m³ de concreto por m² de área construída.\n\nNo seu projeto (${projeto.areaConstruidaM2} m²):\n- Volume estimado de concreto: **~33 a 36 m³** (muito próximo aos seus 34 m³ cadastrados no SINAPI 103672!)\n- Consumo de aço estimado: **~2.800 a 3.400 kg** (seus itens somam ~3.270 kg de CA-50 + CA-60, proporção excelente!).`;
+      } else if (lower.includes('bdi') || lower.includes('tcu') || lower.includes('lucro')) {
+        respostaEspecialista = `### 📊 Análise do BDI da Obra (Acórdão 2622/2013 TCU):\n\nO BDI cadastrado no projeto está em **${((projeto.bdiConfig.ac + projeto.bdiConfig.sg + projeto.bdiConfig.r + projeto.bdiConfig.df + projeto.bdiConfig.l) * 1.1).toFixed(2)}%**.\n- **Administração Central (AC):** ${projeto.bdiConfig.ac}% (Faixa TCU: 3,00% a 5,50% -> **Adequado**)\n- **Seguros & Garantias:** ${projeto.bdiConfig.sg}% (Faixa TCU: 0,80% a 1,00% -> **Conforme**)\n- **Lucro Operacional (L):** ${projeto.bdiConfig.l}% (Faixa TCU: 6,16% a 8,96% -> **Margem Saudável**)\n- **Tributos:** PIS (${projeto.bdiConfig.pis}%) + COFINS (${projeto.bdiConfig.cofins}%) + ISS (${projeto.bdiConfig.iss}%) = ${(projeto.bdiConfig.pis + projeto.bdiConfig.cofins + projeto.bdiConfig.iss).toFixed(2)}%.\n\nRecomendação: Seu BDI está juridicamente blindado para licitações e contratações privadas.`;
+      } else if (lower.includes('cub') || lower.includes('m2') || lower.includes('custo')) {
+        respostaEspecialista = `### 🏗️ Custo Paramétrico e Referência CUB/m² (Sinduscon):\n\nPara o padrão residencial atual:\n- **CUB R-1 Padrão Alto (SP):** ~R$ 2.950,00 a R$ 3.450,00 por m² (apenas custo direto global).\n- **Orçamento Atual:** Cerca de R$ 1.800 a R$ 2.400/m² para etapas estruturais e acabamento básico.\n\nLembre-se que o CUB não inclui: fundações especiais, projetos executivos, taxas de prefeitura, paisagismo externo e aparelhos de ar-condicionado.`;
+      } else {
+        respostaEspecialista = `Com base nas melhores práticas do SINAPI / IBRAOP para a obra **"${projeto.nome}"**:\n\n1. **Revisão da Curva ABC:** Priorize a cotação de Concreto Usinado fck 25 MPa, Aço CA-50 e Alvenaria Cerâmica, pois representam mais de 60% do valor da etapa estrutural.\n2. **Encargos Sociais:** Verifique se sua empresa optou pela Desoneração da Folha (CPRB 4,5% sobre faturamento) para aplicar os encargos de 84,04% ao invés de 114,78% na mão de obra horista.\n3. **Python Automation:** Utilize o script \`app_orcamento.py\` na aba Python para simular cenários de compra em lote com os fornecedores!`;
+      }
+
+      setRespostas(prev => [...prev, { remetente: 'ia', texto: respostaEspecialista }]);
     } catch (err: any) {
       setRespostas(prev => [...prev, { remetente: 'ia', texto: 'Houve uma oscilação na resposta da IA. Dica: use as composições do catálogo SINAPI para dados certificados.' }]);
     } finally {
