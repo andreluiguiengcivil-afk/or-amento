@@ -1086,7 +1086,7 @@ export const InsumosGenericosCotacaoView: React.FC<InsumosGenericosCotacaoViewPr
                       <table className="w-full text-left text-xs">
                         <thead>
                           <tr className="bg-slate-100/60 text-slate-600 uppercase text-[10px] tracking-wider border-b border-slate-200">
-                            <th className="py-2.5 px-4 font-bold">Código</th>
+                            <th className="py-2.5 px-4 font-bold">CÓD.</th>
                             <th className="py-2.5 px-4 font-bold">Insumo Genérico</th>
                             <th className="py-2.5 px-4 font-bold text-center">Quantidade</th>
                             <th className="py-2.5 px-4 font-bold">Especificação Técnica</th>
@@ -1752,8 +1752,8 @@ export const InsumosGenericosCotacaoView: React.FC<InsumosGenericosCotacaoViewPr
                       </td>
                       <td className="p-2 border-r text-center font-mono font-bold">{item.quantidade}</td>
                       <td className="p-2 border-r text-center font-mono">{item.unidade}</td>
-                      <td className="p-2 border-r text-right font-mono font-bold">
-                        {item.precoInformado ? formatarMoeda(item.precoInformado) : 'R$ ____________'}
+                      <td className="p-2 border-r text-right font-mono font-bold text-slate-400">
+                        R$ ____________
                       </td>
                       <td className="p-2 text-center text-slate-400">________________</td>
                     </tr>

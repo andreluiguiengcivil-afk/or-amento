@@ -17,7 +17,10 @@ import {
   FileText, 
   MapPinCheck,
   ShieldCheck,
-  Filter
+  Filter,
+  X,
+  Layers,
+  AlertCircle
 } from 'lucide-react';
 import { FornecedorReal, InsumoItem } from '../types/orcamento';
 import { formatarMoeda } from '../utils/bdiCalculator';
@@ -29,6 +32,8 @@ interface FornecedoresGerenciamentoViewProps {
   onAtualizarFornecedor: (fornecedor: FornecedorReal) => void;
   onExcluirFornecedor: (id: string) => void;
   onIrParaCadastrarPreco: (fornecedorId: string) => void;
+  onExcluirInsumoFornecedor?: (id: string) => void;
+  onExcluirMultiplosInsumosFornecedor?: (ids: string[]) => void;
 }
 
 export const FornecedoresGerenciamentoView: React.FC<FornecedoresGerenciamentoViewProps> = ({
@@ -37,12 +42,17 @@ export const FornecedoresGerenciamentoView: React.FC<FornecedoresGerenciamentoVi
   onAdicionarFornecedor,
   onAtualizarFornecedor,
   onExcluirFornecedor,
-  onIrParaCadastrarPreco
+  onIrParaCadastrarPreco,
+  onExcluirInsumoFornecedor,
+  onExcluirMultiplosInsumosFornecedor
 }) => {
   const [busca, setBusca] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('TODAS');
   const [exibirFormulario, setExibirFormulario] = useState(false);
   const [fornecedorEmEdicao, setFornecedorEmEdicao] = useState<FornecedorReal | null>(null);
+  const [fornecedorInsumosModal, setFornecedorInsumosModal] = useState<FornecedorReal | null>(null);
+  const [insumoIdExcluindo, setInsumoIdExcluindo] = useState<string | null>(null);
+  const [confirmandoApagarTodos, setConfirmandoApagarTodos] = useState(false);
 
   // Estados do Formulário (Adicionar / Editar)
   const [nome, setNome] = useState('');
@@ -179,9 +189,12 @@ export const FornecedoresGerenciamentoView: React.FC<FornecedoresGerenciamentoVi
     return matchBusca && matchCategoria;
   });
 
-  // Quantidade de insumos fornecidos por cada fornecedor (onde base === fornecedor.nome)
-  const getInsumosDoFornecedor = (nomeFornecedor: string) => {
-    return insumos.filter(i => i.base === nomeFornecedor);
+  // Quantidade de insumos fornecidos por cada fornecedor (onde base === fornecedor.nome ou fornecedorId === fornecedor.id)
+  const getInsumosDoFornecedor = (nomeFornecedor: string, idFornecedor?: string) => {
+    return insumos.filter(i => 
+      i.base.toLowerCase() === nomeFornecedor.toLowerCase() ||
+      (idFornecedor && i.fornecedorId === idFornecedor)
+    );
   };
 
   return (
@@ -482,7 +495,7 @@ export const FornecedoresGerenciamentoView: React.FC<FornecedoresGerenciamentoVi
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto text-xs">
+        <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto no-scrollbar scrollbar-none text-xs">
           <span className="text-slate-500 font-bold whitespace-nowrap flex items-center gap-1">
             <Filter className="w-3.5 h-3.5" /> Categoria:
           </span>
@@ -510,7 +523,7 @@ export const FornecedoresGerenciamentoView: React.FC<FornecedoresGerenciamentoVi
           </div>
         ) : (
           fornecedoresFiltrados.map((forn) => {
-            const insumosFornecidos = getInsumosDoFornecedor(forn.nome);
+            const insumosFornecidos = getInsumosDoFornecedor(forn.nome, forn.id);
             const numeroTelFormatado = forn.telefone.replace(/\D/g, '');
 
             return (
@@ -613,12 +626,19 @@ export const FornecedoresGerenciamentoView: React.FC<FornecedoresGerenciamentoVi
 
                 {/* Footer do Card: Preços Cadastrados e Ações */}
                 <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] uppercase font-bold text-slate-500">Insumos Cotados:</span>
-                    <span className="text-xs font-black font-mono px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
+                  <button
+                    type="button"
+                    onClick={() => setFornecedorInsumosModal(forn)}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-rose-300 hover:bg-rose-50/70 transition cursor-pointer text-left group"
+                    title="Ver e apagar insumos deste fornecedor"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-rose-600 transition" />
+                    <span className="text-[10px] uppercase font-bold text-slate-500 group-hover:text-rose-900">Insumos:</span>
+                    <span className="text-xs font-black font-mono px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-900 border border-amber-300 group-hover:bg-rose-100 group-hover:text-rose-900 group-hover:border-rose-300">
                       {insumosFornecidos.length}
                     </span>
-                  </div>
+                    <span className="text-[10px] text-rose-600 font-bold underline ml-0.5">Apagar</span>
+                  </button>
 
                   <button
                     type="button"
@@ -635,6 +655,233 @@ export const FornecedoresGerenciamentoView: React.FC<FornecedoresGerenciamentoVi
           })
         )}
       </div>
+
+      {/* MODAL DE VISUALIZAR E APAGAR INSUMOS DO FORNECEDOR */}
+      {fornecedorInsumosModal && (() => {
+        const insumosModal = getInsumosDoFornecedor(fornecedorInsumosModal.nome, fornecedorInsumosModal.id);
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+              
+              {/* Header do Modal */}
+              <div className="p-5 border-b border-slate-200 bg-slate-900 text-white flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-amber-400 text-slate-950 rounded-xl font-black">
+                    <Package className="w-5 h-5 stroke-[2.5]" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-base text-white flex items-center gap-2">
+                      <span>Insumos do Fornecedor: {fornecedorInsumosModal.nome}</span>
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-full bg-amber-400 text-slate-950">
+                        {insumosModal.length} {insumosModal.length === 1 ? 'item' : 'itens'}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Visualize e apague os insumos associados a este fornecedor.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setFornecedorInsumosModal(null)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
+                  title="Fechar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Barra de Ações Rápidas */}
+              <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-600 font-medium">
+                    Total nesta base: <strong>{insumosModal.length} insumo(s)</strong>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {insumosModal.length > 0 && (onExcluirMultiplosInsumosFornecedor || onExcluirInsumoFornecedor) && (
+                    confirmandoApagarTodos ? (
+                      <div className="flex items-center gap-1.5 bg-rose-100 p-1 rounded-xl border border-rose-300 animate-fade-in">
+                        <span className="text-[11px] font-bold text-rose-900 px-2">Apagar todos os {insumosModal.length}?</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const ids = insumosModal.map(i => i.id);
+                            if (onExcluirMultiplosInsumosFornecedor) {
+                              onExcluirMultiplosInsumosFornecedor(ids);
+                            } else if (onExcluirInsumoFornecedor) {
+                              ids.forEach(id => onExcluirInsumoFornecedor(id));
+                            }
+                            setConfirmandoApagarTodos(false);
+                          }}
+                          className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs rounded-lg cursor-pointer"
+                        >
+                          Sim, Apagar Tudo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmandoApagarTodos(false)}
+                          className="px-2 py-1 bg-white text-slate-700 hover:bg-slate-200 font-bold text-xs rounded-lg cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmandoApagarTodos(true)}
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-300 font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer text-xs"
+                        title="Apagar todos os insumos vinculados a este fornecedor"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Apagar Todos os Insumos ({insumosModal.length})</span>
+                      </button>
+                    )
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const fId = fornecedorInsumosModal.id;
+                      setFornecedorInsumosModal(null);
+                      onIrParaCadastrarPreco(fId);
+                    }}
+                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold rounded-xl transition flex items-center gap-1.5 cursor-pointer text-xs"
+                  >
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span>+ Cadastrar Novos Preços</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Tabela de Insumos */}
+              <div className="overflow-y-auto flex-1 p-6">
+                {insumosModal.length === 0 ? (
+                  <div className="p-12 text-center text-slate-500 space-y-3 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <Package className="w-10 h-10 text-slate-300 mx-auto" />
+                    <h4 className="font-bold text-slate-700 text-sm">
+                      Nenhum insumo cadastrado para {fornecedorInsumosModal.nome}
+                    </h4>
+                    <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                      Este fornecedor ainda não possui insumos vinculados.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const fId = fornecedorInsumosModal.id;
+                        setFornecedorInsumosModal(null);
+                        onIrParaCadastrarPreco(fId);
+                      }}
+                      className="mt-2 px-4 py-2 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-xs transition cursor-pointer"
+                    >
+                      Cadastrar Preço de Fornecedor
+                    </button>
+                  </div>
+                ) : (
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-slate-100 text-slate-700 font-bold uppercase tracking-wider text-[10px] border-b border-slate-200">
+                        <tr>
+                          <th className="py-2.5 px-3 w-20">CÓD.</th>
+                          <th className="py-2.5 px-4">Descrição do Insumo</th>
+                          <th className="py-2.5 px-2 w-14 text-center">Unid.</th>
+                          <th className="py-2.5 px-3 text-right w-28 bg-emerald-50/40">Preço À Vista</th>
+                          <th className="py-2.5 px-3 text-right w-28 bg-blue-50/40">Preço A Prazo</th>
+                          <th className="py-2.5 px-3 text-right w-28 bg-amber-50/60 font-black">Considerado</th>
+                          <th className="py-2.5 px-3 text-center w-24">Ação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {insumosModal.map(item => {
+                          const precoAvista = item.precoAvista || 0;
+                          const precoPrazo = item.precoPrazo || item.precoUnitario || 0;
+                          const condicao = item.tipoPagamentoSelecionado || 'PRAZO';
+                          const valorConsiderado = condicao === 'AVISTA' && precoAvista > 0 ? precoAvista : precoPrazo;
+
+                          return (
+                            <tr key={item.id} className="hover:bg-slate-50 transition">
+                              <td className="py-2.5 px-3">
+                                <span className="font-mono font-bold text-[11px] bg-amber-100 text-amber-950 px-2 py-0.5 rounded border border-amber-300">
+                                  {item.codigo}
+                                </span>
+                              </td>
+                              <td className="py-2.5 px-4 font-medium text-slate-900">
+                                {item.descricao || item.nome}
+                              </td>
+                              <td className="py-2.5 px-2 text-center font-bold text-slate-600">
+                                {item.unidade}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono text-emerald-800 bg-emerald-50/20">
+                                {precoAvista > 0 ? formatarMoeda(precoAvista) : '-'}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono text-blue-800 bg-blue-50/20">
+                                {precoPrazo > 0 ? formatarMoeda(precoPrazo) : '-'}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 bg-amber-50/30">
+                                {formatarMoeda(valorConsiderado)}
+                              </td>
+                              <td className="py-2.5 px-3 text-center">
+                                {insumoIdExcluindo === item.id ? (
+                                  <div className="flex items-center justify-center gap-1 animate-fade-in">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        onExcluirInsumoFornecedor?.(item.id);
+                                        setInsumoIdExcluindo(null);
+                                      }}
+                                      className="px-2 py-1 text-[10px] bg-rose-600 hover:bg-rose-700 text-white font-black rounded-lg transition cursor-pointer"
+                                      title="Confirmar exclusão deste insumo"
+                                    >
+                                      Confirmar
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setInsumoIdExcluindo(null)}
+                                      className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                                      title="Cancelar"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setInsumoIdExcluindo(item.id)}
+                                    className="px-2.5 py-1 text-[11px] bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white border border-rose-200 font-bold rounded-lg transition flex items-center justify-center gap-1 mx-auto cursor-pointer"
+                                    title="Apagar este insumo deste fornecedor"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Apagar</span>
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer do Modal */}
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setFornecedorInsumosModal(null)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition cursor-pointer"
+                >
+                  Fechar
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );

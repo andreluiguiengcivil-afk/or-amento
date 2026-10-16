@@ -107,8 +107,34 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
   const [modalFornecedorRealAberto, setModalFornecedorRealAberto] = useState(false);
   const [insumoParaFornecedorReal, setInsumoParaFornecedorReal] = useState<InsumoItem | null>(null);
   const [fornecedorPreSelecionadoId, setFornecedorPreSelecionadoId] = useState<string | null>(null);
+  const [itemPreSelecionadoId, setItemPreSelecionadoId] = useState<string | null>(null);
+
+  // Redireciona insumos de fornecedores para a aba Cadastrar Preço de Fornecedor
+  const handleEditarInsumoDaTabela = (item: InsumoItem) => {
+    const isSinapi = (item.base || item.fornecedor) === 'SINAPI';
+    if (!isSinapi) {
+      // Insumo de fornecedor: redireciona para "Cadastrar Preço de Fornecedor" e foca o item específico
+      const fornNome = item.base || item.fornecedor || '';
+      const fEncontrado = fornecedores.find(f => 
+        f.nome.toLowerCase() === fornNome.toLowerCase() ||
+        f.id === item.fornecedorId
+      );
+      setFornecedorPreSelecionadoId(fEncontrado ? fEncontrado.id : 'TODOS');
+      setItemPreSelecionadoId(item.id);
+      setSubAba('precos-fornecedores');
+      return;
+    }
+
+    // Se for SINAPI oficial, abre o modal de edição padrão
+    abrirEdicaoInsumo(item as any);
+  };
 
   const abrirModalFornecedorReal = (insumo: InsumoItem) => {
+    const isSinapi = (insumo.base || insumo.fornecedor) === 'SINAPI';
+    if (!isSinapi) {
+      alert('Não é possível adicionar novos fornecedores a partir de um item de fornecedor. Adicionar fornecedores é permitido apenas na base oficial SINAPI.');
+      return;
+    }
     setInsumoParaFornecedorReal(insumo);
     setModalFornecedorRealAberto(true);
   };
@@ -154,9 +180,100 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
     setTimeout(() => setFeedbackSalvo(null), 4000);
   };
 
-  const handleExcluirInsumo = (id: string) => {
-    const atualizados = insumos.filter(i => i.id !== id);
+  const handleVincularMultiplosFornecedores = (insumo: InsumoItem, fornecedoresIds: string[]) => {
+    const fornecedoresSelecionados = fornecedores.filter(f => fornecedoresIds.includes(f.id));
+    if (fornecedoresSelecionados.length === 0) return;
+
+    let atualizados = [...insumos];
+    let novosCount = 0;
+
+    fornecedoresSelecionados.forEach(forn => {
+      const indexExistente = atualizados.findIndex(
+        i => i.codigo === insumo.codigo && i.base.toLowerCase() === forn.nome.toLowerCase()
+      );
+
+      const novoInsumo: InsumoItem = {
+        id: `ins-forn-${forn.id}-${insumo.codigo}-${Date.now()}`,
+        codigo: insumo.codigo,
+        descricao: insumo.descricao,
+        nome: insumo.descricao,
+        unidade: insumo.unidade,
+        tipo: insumo.tipo,
+        base: forn.nome, // BASE = NOME DO FORNECEDOR
+        fornecedor: forn.nome,
+        whatsappFornecedor: forn.telefone || '',
+        precoUnitario: 0,
+        precoPrazo: 0,
+        precoAvista: 0,
+        descontoAvistaPercentual: 0,
+        tipoPagamentoSelecionado: 'PRAZO',
+        fornecedorId: forn.id,
+        fornecedorNome: forn.nome,
+        contatoFornecedor: forn.contato,
+        telefoneFornecedor: forn.telefone,
+        emailFornecedor: forn.email,
+        enderecoFornecedor: `${forn.endereco.logradouro}, ${forn.endereco.numero || ''} - ${forn.endereco.cidade}/${forn.endereco.uf}`,
+        prazoEntregaDias: 3,
+        condicoesPagamento: 'A prazo',
+        dataAtualizacao: new Date().toISOString().split('T')[0]
+      };
+
+      if (indexExistente >= 0) {
+        // Já existe
+      } else {
+        atualizados = [novoInsumo, ...atualizados];
+        novosCount++;
+      }
+    });
+
     salvarInsumos(atualizados);
+    setFeedbackSalvo(`Insumo [Cód. ${insumo.codigo}] vinculado com sucesso na base de ${fornecedoresSelecionados.length} fornecedor(es)! Alterne o filtro de Base acima para visualizar.`);
+    setTimeout(() => setFeedbackSalvo(null), 5000);
+  };
+
+  const handleSalvarMultiplosPrecos = (itensAtualizados: InsumoItem[]) => {
+    let listaAtual = [...insumos];
+    itensAtualizados.forEach(atualizado => {
+      const idx = listaAtual.findIndex(i => i.id === atualizado.id);
+      if (idx >= 0) {
+        listaAtual[idx] = atualizado;
+      } else {
+        listaAtual.unshift(atualizado);
+      }
+    });
+    salvarInsumos(listaAtual);
+  };
+
+  const handleExcluirInsumo = (id: string) => {
+    setInsumos(prev => {
+      const atualizados = prev.filter(i => i.id !== id);
+      try {
+        localStorage.setItem('orcapro_insumos_catalogo', JSON.stringify(atualizados));
+        localStorage.setItem('seobra_insumos_fornecedores', JSON.stringify(atualizados));
+      } catch (err) {
+        console.error('Erro ao salvar no localStorage:', err);
+      }
+      return atualizados;
+    });
+    setFeedbackSalvo('Insumo excluído com sucesso da base do fornecedor!');
+    setTimeout(() => setFeedbackSalvo(null), 3500);
+  };
+
+  const handleExcluirMultiplosInsumos = (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    const idsSet = new Set(ids);
+    setInsumos(prev => {
+      const atualizados = prev.filter(i => !idsSet.has(i.id));
+      try {
+        localStorage.setItem('orcapro_insumos_catalogo', JSON.stringify(atualizados));
+        localStorage.setItem('seobra_insumos_fornecedores', JSON.stringify(atualizados));
+      } catch (err) {
+        console.error('Erro ao salvar no localStorage:', err);
+      }
+      return atualizados;
+    });
+    setFeedbackSalvo(`${ids.length} insumo(s) apagado(s) com sucesso da base do fornecedor!`);
+    setTimeout(() => setFeedbackSalvo(null), 3500);
   };
 
   // Lista de Itens de Incidência
@@ -550,9 +667,18 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
       {/* Alerta de Feedback de Salvamento */}
       {feedbackSalvo && (
         <div className="bg-emerald-50 border border-emerald-300 text-emerald-900 px-4 py-3 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs animate-fade-in">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 stroke-[2.5] flex-shrink-0" />
             <span>{feedbackSalvo}</span>
+            {feedbackSalvo.includes('Alterne o filtro de Base') && (
+              <button
+                type="button"
+                onClick={() => setFiltroFornecedorEditar('FORNECEDORES')}
+                className="ml-2 px-2 py-0.5 rounded bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[11px] transition cursor-pointer shadow-2xs"
+              >
+                Ver Bases de Fornecedores &rarr;
+              </button>
+            )}
           </div>
           <button onClick={() => setFeedbackSalvo(null)} className="text-emerald-700 hover:text-emerald-900">
             <X className="w-4 h-4" />
@@ -587,14 +713,15 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
             <button
               type="button"
               onClick={() => {
-                if (insumos.length > 0) {
-                  abrirModalFornecedorReal(insumos[0]);
+                const primeiroSinapi = insumos.find(i => (i.base || i.fornecedor) === 'SINAPI');
+                if (primeiroSinapi) {
+                  abrirModalFornecedorReal(primeiroSinapi);
                 } else {
-                  setSubAba('fornecedores');
+                  alert('Selecione um insumo da base oficial SINAPI para vincular fornecedores.');
                 }
               }}
               className="py-2 px-3.5 bg-slate-900 hover:bg-slate-800 text-amber-400 font-black text-xs uppercase tracking-wider rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer border border-amber-400/40"
-              title="Vincular um fornecedor real a um insumo SINAPI"
+              title="Vincular fornecedores reais a um insumo oficial SINAPI"
             >
               <Building2 className="w-4 h-4 text-amber-400" />
               <span>+ FORNECEDOR REAL NO INSUMO</span>
@@ -623,7 +750,7 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
         </div>
 
         {/* BARRA DE SUB-ABAS ATUALIZADA COM AS REGRAS SOLICITADAS */}
-        <div className="flex items-center border-b border-slate-200 overflow-x-auto pt-2 gap-2 text-xs font-bold">
+        <div className="flex items-center border-b border-slate-200 overflow-x-auto no-scrollbar scrollbar-none pt-2 gap-2 text-xs font-bold">
           
           {/* Sub-Aba 1: BANCO DE INSUMOS (SINAPI & FORNECEDORES) */}
           <button
@@ -859,14 +986,14 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
               <table className="w-full text-left text-xs text-slate-700">
                 <thead className="bg-slate-100/70 text-[10px] uppercase font-mono font-semibold text-slate-500 border-b border-slate-200">
                   <tr>
-                    <th className="py-3 px-3 w-24">Cód. SINAPI</th>
+                    <th className="py-3 px-3 w-20">CÓD.</th>
                     <th className="py-3 px-4">Descrição do Insumo</th>
                     <th className="py-3 px-3 w-40">Base</th>
                     <th className="py-3 px-3 text-center w-20">Tipo</th>
                     <th className="py-3 px-3 text-center w-16">Unid.</th>
                     <th className="py-3 px-3 text-right w-28">Preço Unitário</th>
                     <th className="py-3 px-3 text-center w-24">Atualização</th>
-                    <th className="py-3 px-4 text-center w-56">Ações no Insumo</th>
+                    <th className="py-3 px-4 text-center w-44">Ações no Insumo</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-sans">
@@ -943,51 +1070,32 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
                           {item.dataAtualizacao || '2025-01-15'}
                         </td>
 
-                        {/* BOTÕES DE AÇÕES: CADASTRAR FORNECEDOR REAL, EDITAR, COTAR E EXCLUIR */}
+                        {/* BOTÕES DE AÇÕES: CADASTRAR FORNECEDOR REAL E EDITAR (SEM COTAR E SEM APAGAR CONFORME SOLICITADO) */}
                         <td className="py-3 px-4 text-center">
                           <div className="flex items-center justify-center gap-1.5 flex-wrap">
                             
-                            {/* BOTÃO SOLICITADO: CADASTRO DE FORNECEDOR REAL */}
-                            <button
-                              type="button"
-                              onClick={() => abrirModalFornecedorReal(item)}
-                              className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 font-black text-[11px] rounded-lg shadow-xs transition flex items-center gap-1 cursor-pointer border border-amber-400/40"
-                              title="Vincular Fornecedor Real e criar novo insumo com código SINAPI e base do fornecedor"
-                            >
-                              <Building2 className="w-3.5 h-3.5 text-amber-400" />
-                              <span>+ Fornecedor Real</span>
-                            </button>
+                            {/* BOTÃO CADASTRO DE FORNECEDOR REAL: APENAS NA BASE SINAPI */}
+                            {isSinapi && (
+                              <button
+                                type="button"
+                                onClick={() => abrirModalFornecedorReal(item)}
+                                className="px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 font-black text-[11px] rounded-lg shadow-xs transition flex items-center gap-1 cursor-pointer border border-amber-400/40"
+                                title="Vincular Fornecedor Real e criar novo insumo com código SINAPI e base do fornecedor"
+                              >
+                                <Building2 className="w-3.5 h-3.5 text-amber-400" />
+                                <span>+ Fornecedor Real</span>
+                              </button>
+                            )}
 
                             {/* BOTÃO EDITAR INSUMO */}
                             <button
                               type="button"
-                              onClick={() => abrirEdicaoInsumo(item as any)}
+                              onClick={() => handleEditarInsumoDaTabela(item)}
                               className="px-2 py-1.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-[11px] rounded-lg shadow-xs transition flex items-center gap-1 cursor-pointer"
-                              title="Editar este insumo"
+                              title={isSinapi ? "Editar este insumo SINAPI" : "Ir para cadastrar preço de fornecedor e alterar este item"}
                             >
                               <Edit3 className="w-3.5 h-3.5 stroke-[2.5]" />
                               <span>Editar</span>
-                            </button>
-
-                            {/* BOTÃO COTAR NO WHATSAPP */}
-                            <button
-                              type="button"
-                              onClick={() => abrirCotacaoInsumo(item as any)}
-                              className="px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold text-[11px] rounded-lg transition flex items-center gap-1 cursor-pointer"
-                              title="Cotar este insumo com fornecedores pelo WhatsApp"
-                            >
-                              <MessageCircle className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-                              <span>Cotar</span>
-                            </button>
-
-                            {/* BOTÃO EXCLUIR */}
-                            <button
-                              type="button"
-                              onClick={() => removerInsumo(item.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition cursor-pointer"
-                              title="Excluir este insumo"
-                            >
-                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
@@ -1022,6 +1130,8 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
           onAdicionarFornecedor={handleAdicionarFornecedor}
           onAtualizarFornecedor={handleAtualizarFornecedor}
           onExcluirFornecedor={handleExcluirFornecedor}
+          onExcluirInsumoFornecedor={handleExcluirInsumo}
+          onExcluirMultiplosInsumosFornecedor={handleExcluirMultiplosInsumos}
           onIrParaCadastrarPreco={(fId) => {
             setFornecedorPreSelecionadoId(fId);
             setSubAba('precos-fornecedores');
@@ -1037,9 +1147,12 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
           fornecedores={fornecedores}
           insumos={insumos}
           fornecedorPreSelecionadoId={fornecedorPreSelecionadoId}
+          itemPreSelecionadoId={itemPreSelecionadoId}
           onSalvarPrecoFornecedor={handleCriarInsumoComBaseFornecedor}
           onExcluirInsumoFornecedor={handleExcluirInsumo}
+          onExcluirMultiplosInsumosFornecedor={handleExcluirMultiplosInsumos}
           onIrParaFornecedores={() => setSubAba('fornecedores')}
+          onSalvarMultiplosPrecos={handleSalvarMultiplosPrecos}
         />
       )}
 
@@ -1323,7 +1436,7 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
                         <table className="w-full text-left text-xs text-slate-700">
                           <thead className="bg-slate-50 text-[10px] uppercase font-mono font-semibold text-slate-500 border-b border-slate-100">
                             <tr>
-                              <th className="py-2.5 px-4 w-28">Código</th>
+                              <th className="py-2.5 px-4 w-28">CÓD.</th>
                               <th className="py-2.5 px-4">Nome do Insumo</th>
                               <th className="py-2.5 px-3 text-center w-16">Tipo</th>
                               <th className="py-2.5 px-3 text-center w-20">Unidade</th>
@@ -1359,9 +1472,9 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
                                   <div className="flex items-center justify-center gap-1">
                                     <button
                                       type="button"
-                                      onClick={() => abrirEdicaoInsumo(item)}
+                                      onClick={() => handleEditarInsumoDaTabela(item as any)}
                                       className="p-1.5 text-amber-800 hover:text-amber-950 hover:bg-amber-100 rounded-lg transition cursor-pointer"
-                                      title="Editar este insumo cadastrado"
+                                      title="Editar este insumo cadastrado na aba de preços"
                                     >
                                       <Edit3 className="w-3.5 h-3.5 stroke-[2.2]" />
                                     </button>
@@ -1434,7 +1547,7 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
             <table className="w-full text-left text-xs text-slate-700">
               <thead className="bg-slate-50 text-[10px] uppercase font-mono font-semibold text-slate-500 border-b border-slate-100">
                 <tr>
-                  <th className="py-2.5 px-3 w-28">Código</th>
+                  <th className="py-2.5 px-3 w-28">CÓD.</th>
                   <th className="py-2.5 px-3">Nome da Incidência</th>
                   <th className="py-2.5 px-3">Descrição / Finalidade</th>
                   <th className="py-2.5 px-3">Base de Cálculo</th>
@@ -2340,6 +2453,8 @@ export const CadastroInsumosComposicoesView: React.FC<CadastroInsumosComposicoes
         }}
         onAdicionarFornecedor={handleAdicionarFornecedor}
         onCriarInsumoComBaseFornecedor={handleCriarInsumoComBaseFornecedor}
+        onVincularFornecedores={handleVincularMultiplosFornecedores}
+        insumosExistentes={insumos}
       />
 
     </div>

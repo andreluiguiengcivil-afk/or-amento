@@ -296,76 +296,19 @@ export default function App() {
           {/* Insumos & Composições (4 Cartões Amarelos, Pastas de Fornecedores e Banco SINAPI) */}
           {(activeView.startsWith('insumos') || activeView === 'sinapi' || activeView === 'fontes-proprias') && (
             <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setActiveView('dashboard')}
-                  className="flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-800 transition"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Voltar aos Orçamentos</span>
-                </button>
-
-                {/* Sub-abas de Insumos & Composições */}
-                {/* Sub-abas de Insumos & Fornecedores */}
-                <div className="flex items-center bg-slate-200/80 p-1 rounded-xl text-xs font-bold gap-1 overflow-x-auto">
+              {/* Barra superior exibida apenas quando no Catálogo SINAPI (fora do módulo unificado de Insumos & Fornecedores) */}
+              {(activeView === 'insumos-pesquisar' || activeView === 'sinapi') && (
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                   <button
                     type="button"
-                    onClick={() => setActiveView('insumos-editar')}
-                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                      activeView === 'insumos-editar'
-                        ? 'bg-amber-400 text-slate-950 shadow-sm border border-amber-500 font-black'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    onClick={() => setActiveView('dashboard')}
+                    className="flex items-center gap-1.5 text-xs font-bold text-teal-700 hover:text-teal-800 transition cursor-pointer"
                   >
-                    <span>Banco de Insumos (SINAPI & Fornecedores)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('insumos-fornecedores')}
-                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                      activeView === 'insumos-fornecedores'
-                        ? 'bg-slate-900 text-amber-400 shadow-sm font-black'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    <span>Página de Fornecedores</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('insumos-precos')}
-                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
-                      activeView === 'insumos-precos'
-                        ? 'bg-emerald-600 text-white shadow-sm border border-emerald-700 font-black'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    <span>Cadastrar Preço de Fornecedor</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('insumos-novo')}
-                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer ${
-                      activeView === 'insumos-novo' || activeView === 'fontes-proprias' || activeView === 'insumos-proprios'
-                        ? 'bg-white text-amber-900 shadow-sm border border-amber-300'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    4 Cartões Amarelos & Pastas
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('insumos-pesquisar')}
-                    className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap cursor-pointer ${
-                      activeView === 'insumos-pesquisar' || activeView === 'sinapi'
-                        ? 'bg-white text-teal-800 shadow-sm border border-slate-200'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Catálogo SINAPI Caixa
+                    <ArrowLeft className="w-4 h-4" />
+                    <span>Voltar aos Orçamentos</span>
                   </button>
                 </div>
-              </div>
+              )}
 
               {/* Renderiza a View com a sub-aba solicitada */}
               {(activeView === 'insumos-novo' || activeView === 'fontes-proprias' || activeView === 'insumos-proprios') && (

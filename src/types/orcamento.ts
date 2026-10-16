@@ -118,6 +118,10 @@ export interface InsumoItem {
   tipo: TipoInsumo;
   base: string; // "SINAPI" ou o Nome do Fornecedor Real (ex: "Votorantim Cimentos S/A")
   precoUnitario: number;
+  precoAvista?: number; // Preço praticado à vista
+  precoPrazo?: number; // Preço praticado a prazo
+  descontoAvistaPercentual?: number; // % de desconto calculado automaticamente para pagamento à vista
+  tipoPagamentoSelecionado?: 'AVISTA' | 'PRAZO'; // Condição selecionada: 'AVISTA' ou 'PRAZO' (padrão 'PRAZO' se não selecionado)
   fornecedor: string; // Sinônimo para base quando for fornecedor
   whatsappFornecedor: string; // Sinônimo para telefone/WhatsApp do fornecedor
   fornecedorId?: string; // Presente quando base !== 'SINAPI'
@@ -164,7 +168,11 @@ export interface FornecedorCotacao {
   contatoVendedor?: string; // Nome do consultor ou vendedor
   whatsapp: string; // WhatsApp com DDD
   email?: string;
-  precoInformado?: number; // Preço unitário respondido pelo fornecedor
+  precoInformado?: number; // Preço unitário respondido pelo fornecedor (considerado)
+  precoAvista?: number; // Preço à vista
+  precoPrazo?: number; // Preço a prazo
+  descontoAvistaPercentual?: number; // % desconto à vista
+  tipoPagamentoSelecionado?: 'AVISTA' | 'PRAZO'; // Padrão: 'PRAZO'
   prazoEntregaDias?: number; // Prazo de entrega em dias
   condicoesPagamento?: string; // Ex: 28 DDL, À vista com 5% desc., Boleto faturado
   status: StatusFornecedorCotacao;
@@ -210,6 +218,10 @@ export interface ItemCotacaoFornecedor {
   quantidade: number;
   especificacaoTecnica?: string;
   precoInformado?: number;
+  precoAvista?: number;
+  precoPrazo?: number;
+  descontoAvistaPercentual?: number;
+  tipoPagamentoSelecionado?: 'AVISTA' | 'PRAZO';
   prazoEntregaDias?: number;
   condicoesPagamento?: string;
   status: StatusFornecedorCotacao;

@@ -308,7 +308,7 @@ export const BudgetTable: React.FC<BudgetTableProps> = ({
                     <thead className="bg-slate-800/40 text-[10px] uppercase tracking-wider text-slate-400 font-semibold border-b border-slate-800 font-mono">
                       <tr>
                         <th className="py-2.5 px-3 w-12 text-center">Item</th>
-                        <th className="py-2.5 px-3 w-28">Código</th>
+                        <th className="py-2.5 px-3 w-28">CÓD.</th>
                         <th className="py-2.5 px-3">Descrição dos Serviços</th>
                         <th className="py-2.5 px-2 text-center w-14">Unid.</th>
                         <th className="py-2.5 px-3 text-right w-24">Qtd.</th>

@@ -56,9 +56,7 @@ export const CotacaoInsumoModal: React.FC<CotacaoInsumoModalProps> = ({
           nomeFornecedor: insumoInicial.fornecedor,
           contatoVendedor: 'Vendedor Responsável',
           whatsapp: insumoInicial.whatsappFornecedor,
-          status: 'PENDENTE',
-          precoInformado: insumoInicial.precoUnitario || undefined,
-          condicoesPagamento: 'Preço de cadastro base'
+          status: 'PENDENTE'
         }
       ];
     }
@@ -89,26 +87,19 @@ export const CotacaoInsumoModal: React.FC<CotacaoInsumoModalProps> = ({
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
   const [mensagemSucesso, setMensagemSucesso] = useState<string | null>(null);
 
-  // Gerador de mensagem formatada para WhatsApp
+  // Gerador de mensagem formatada para WhatsApp conforme regras solicitadas:
+  // "A mensagem deve ser:
+  // Olá, tudo bem? Gostaria de pedir a cotação dos seguintes insumos:
+  // E aí seria os insumos sem o código, mas com o seu nome. A unidade. O Preço de avista e a prazo, sem prazo de entrega.
+  // Além disso, quando for fazer uma cotação, não é para aparecer o preço já cadastrado"
   const gerarMensagemWhatsApp = (fornecedor: FornecedorCotacao) => {
-    const saudacao = fornecedor.contatoVendedor 
-      ? `Olá ${fornecedor.contatoVendedor} (${fornecedor.nomeFornecedor})!` 
-      : `Olá equipe ${fornecedor.nomeFornecedor}!`;
-
     return (
-      `${saudacao}\n\n` +
-      `Aqui é da equipe de Engenharia e Orçamentos de Obra.\n` +
-      `Gostaria de solicitar uma cotação formal de preços para o seguinte insumo:\n\n` +
-      `📌 *INSUMO:* ${nomeInsumo || 'Material/Serviço'}\n` +
-      `🏷️ *CÓDIGO REF:* ${codigoInsumo || 'S/N'}\n` +
-      `📏 *UNIDADE:* ${unidade}\n` +
-      `📦 *QUANTIDADE ESTIMADA:* ${quantidade} ${unidade}\n` +
-      (especificacao ? `📝 *CONDIÇÕES/OBS:* ${especificacao}\n\n` : '\n') +
-      `Poderia nos informar por gentileza:\n` +
-      `1) *Preço Unitário (R$)* com impostos inclusos;\n` +
-      `2) *Prazo estimado de entrega* no canteiro;\n` +
-      `3) *Condições de pagamento* (faturamento/à vista com desconto)?\n\n` +
-      `Ficamos no aguardo para fechamento do pedido. Muito obrigado!`
+      `Olá, tudo bem? Gostaria de pedir a cotação dos seguintes insumos:\n\n` +
+      `1) ${nomeInsumo || 'Material/Serviço'}\n` +
+      `   - Unidade: ${unidade}\n` +
+      `   - Preço à vista:\n` +
+      `   - Preço a prazo:\n\n` +
+      `Ficamos no aguardo. Muito obrigado!`
     );
   };
 
@@ -192,15 +183,73 @@ export const CotacaoInsumoModal: React.FC<CotacaoInsumoModalProps> = ({
     setFornecedores(prev => prev.filter(f => f.id !== id));
   };
 
-  const atualizarPrecoFornecedor = (id: string, precoStr: string) => {
+  const calcularDesconto = (avista?: number, prazo?: number) => {
+    if (prazo && avista && prazo > 0 && avista > 0 && avista < prazo) {
+      return ((prazo - avista) / prazo) * 100;
+    }
+    return 0;
+  };
+
+  const atualizarPrecoAvista = (id: string, precoStr: string) => {
     const valor = parseFloat(precoStr.replace(',', '.')) || 0;
     setFornecedores(prev => prev.map(f => {
       if (f.id === id) {
+        const prazo = f.precoPrazo || 0;
+        const condicao = f.tipoPagamentoSelecionado || 'PRAZO';
+        const desconto = calcularDesconto(valor, prazo);
+        const precoConsiderado = condicao === 'AVISTA' && valor > 0 ? valor : (prazo > 0 ? prazo : valor);
         return {
           ...f,
-          precoInformado: valor > 0 ? valor : undefined,
-          status: valor > 0 ? 'RESPONDIDO' : f.status,
-          dataResposta: valor > 0 ? new Date().toLocaleDateString('pt-BR') : f.dataResposta
+          precoAvista: valor > 0 ? valor : undefined,
+          descontoAvistaPercentual: parseFloat(desconto.toFixed(2)),
+          tipoPagamentoSelecionado: condicao,
+          precoInformado: precoConsiderado > 0 ? precoConsiderado : undefined,
+          status: precoConsiderado > 0 ? 'RESPONDIDO' : f.status,
+          dataResposta: precoConsiderado > 0 ? new Date().toLocaleDateString('pt-BR') : f.dataResposta
+        };
+      }
+      return f;
+    }));
+  };
+
+  const atualizarPrecoPrazo = (id: string, precoStr: string) => {
+    const valor = parseFloat(precoStr.replace(',', '.')) || 0;
+    setFornecedores(prev => prev.map(f => {
+      if (f.id === id) {
+        const avista = f.precoAvista || 0;
+        const condicao = f.tipoPagamentoSelecionado || 'PRAZO';
+        const desconto = calcularDesconto(avista, valor);
+        const precoConsiderado = condicao === 'AVISTA' && avista > 0 ? avista : valor;
+        return {
+          ...f,
+          precoPrazo: valor > 0 ? valor : undefined,
+          descontoAvistaPercentual: parseFloat(desconto.toFixed(2)),
+          tipoPagamentoSelecionado: condicao,
+          precoInformado: precoConsiderado > 0 ? precoConsiderado : undefined,
+          status: precoConsiderado > 0 ? 'RESPONDIDO' : f.status,
+          dataResposta: precoConsiderado > 0 ? new Date().toLocaleDateString('pt-BR') : f.dataResposta
+        };
+      }
+      return f;
+    }));
+  };
+
+  const alternarCondicaoPagamento = (id: string, cond: 'AVISTA' | 'PRAZO') => {
+    setFornecedores(prev => prev.map(f => {
+      if (f.id === id) {
+        const avista = f.precoAvista || 0;
+        const prazo = f.precoPrazo || 0;
+        let precoConsiderado = prazo > 0 ? prazo : avista;
+        if (cond === 'AVISTA' && avista > 0) {
+          precoConsiderado = avista;
+        } else if (cond === 'PRAZO' && prazo > 0) {
+          precoConsiderado = prazo;
+        }
+        return {
+          ...f,
+          tipoPagamentoSelecionado: cond,
+          precoInformado: precoConsiderado > 0 ? precoConsiderado : undefined,
+          condicoesPagamento: cond === 'AVISTA' ? 'À vista' : 'A prazo'
         };
       }
       return f;
@@ -278,6 +327,12 @@ export const CotacaoInsumoModal: React.FC<CotacaoInsumoModalProps> = ({
       descricao: nomeInsumo.trim() || 'Insumo Cotado',
       unidade: unidade.trim() || 'un',
       precoUnitario: fornecedor.precoInformado,
+      precoAvista: fornecedor.precoAvista,
+      precoPrazo: fornecedor.precoPrazo,
+      descontoAvistaPercentual: fornecedor.descontoAvistaPercentual,
+      tipoPagamentoSelecionado: fornecedor.tipoPagamentoSelecionado || 'PRAZO',
+      prazoEntregaDias: fornecedor.prazoEntregaDias || 3,
+      condicoesPagamento: fornecedor.condicoesPagamento || (fornecedor.tipoPagamentoSelecionado === 'AVISTA' ? 'À vista' : 'A prazo'),
       tipo: 'MATERIAL',
       dataAtualizacao: new Date().toISOString().split('T')[0]
     };
@@ -504,18 +559,24 @@ export const CotacaoInsumoModal: React.FC<CotacaoInsumoModalProps> = ({
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-100 text-[10px] uppercase font-mono font-semibold text-slate-600 border-b border-slate-200">
                   <tr>
-                    <th className="py-3 px-4 w-48">Fornecedor / Contato</th>
-                    <th className="py-3 px-3 w-40 text-center">Perguntar no WhatsApp</th>
-                    <th className="py-3 px-3 text-center w-28">Status</th>
-                    <th className="py-3 px-3 w-36 text-right">Valor Informado (R$)</th>
-                    <th className="py-3 px-3 w-28 text-center">Prazo (Dias)</th>
-                    <th className="py-3 px-3">Condições / Forma Pagto</th>
-                    <th className="py-3 px-3 text-center w-16">Ação</th>
+                    <th className="py-3 px-4 w-44">Fornecedor / Contato</th>
+                    <th className="py-3 px-2 w-32 text-center">Perguntar WhatsApp</th>
+                    <th className="py-3 px-2 w-28 text-right bg-emerald-50/50">Preço À Vista</th>
+                    <th className="py-3 px-2 w-28 text-right bg-blue-50/50">Preço A Prazo</th>
+                    <th className="py-3 px-2 w-24 text-center">Desconto</th>
+                    <th className="py-3 px-2 w-36 text-center">Condição</th>
+                    <th className="py-3 px-2 w-28 text-right font-black bg-amber-50/60">Considerado</th>
+                    <th className="py-3 px-2 text-center w-12">Ação</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-sans">
                   {fornecedores.map((forn) => {
                     const isMenor = fornecedorVencedor && fornecedorVencedor.id === forn.id && fornecedoresComPreco.length > 1;
+                    const precoAvista = forn.precoAvista || 0;
+                    const precoPrazo = forn.precoPrazo || (forn.precoInformado && !forn.precoAvista ? forn.precoInformado : 0);
+                    const desconto = forn.descontoAvistaPercentual !== undefined ? forn.descontoAvistaPercentual : calcularDesconto(precoAvista, precoPrazo);
+                    const condicao = forn.tipoPagamentoSelecionado || 'PRAZO';
+                    const considerado = condicao === 'AVISTA' && precoAvista > 0 ? precoAvista : (precoPrazo > 0 ? precoPrazo : (forn.precoInformado || 0));
 
                     return (
                       <tr 
@@ -541,25 +602,23 @@ export const CotacaoInsumoModal: React.FC<CotacaoInsumoModalProps> = ({
                         </td>
 
                         {/* Botões de Disparo WhatsApp */}
-                        <td className="py-3 px-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {/* Botão Enviar WhatsApp */}
+                        <td className="py-3 px-2 text-center">
+                          <div className="flex items-center justify-center gap-1">
                             <button
                               type="button"
                               onClick={() => abrirConversaWhatsApp(forn)}
-                              className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl text-[11px] shadow-xs transition flex items-center gap-1 cursor-pointer"
-                              title="Abrir WhatsApp com mensagem técnica pronta perguntando o valor deste insumo"
+                              className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-[10px] shadow-xs transition flex items-center gap-1 cursor-pointer"
+                              title="Abrir WhatsApp com mensagem técnica"
                             >
-                              <MessageCircle className="w-3.5 h-3.5 stroke-[2.5]" />
-                              <span>Perguntar Valor</span>
+                              <MessageCircle className="w-3 h-3 stroke-[2.5]" />
+                              <span>Cotar</span>
                             </button>
 
-                            {/* Botão Copiar Texto Formatado */}
                             <button
                               type="button"
                               onClick={() => copiarMensagem(forn)}
-                              className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition cursor-pointer"
-                              title="Copiar texto da mensagem de cotação para a área de transferência"
+                              className="p-1 text-slate-400 hover:text-slate-700 rounded transition cursor-pointer"
+                              title="Copiar mensagem"
                             >
                               {copiadoId === forn.id ? (
                                 <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
@@ -570,73 +629,83 @@ export const CotacaoInsumoModal: React.FC<CotacaoInsumoModalProps> = ({
                           </div>
                         </td>
 
-                        {/* Status da Cotação */}
-                        <td className="py-3 px-3 text-center">
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold font-mono border ${
-                            forn.precoInformado && forn.precoInformado > 0
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
-                              : forn.status === 'ENVIADO'
-                              ? 'bg-blue-100 text-blue-800 border-blue-300'
-                              : 'bg-amber-100 text-amber-800 border-amber-300'
-                          }`}>
-                            {forn.precoInformado && forn.precoInformado > 0 
-                              ? '✓ Respondido' 
-                              : forn.status === 'ENVIADO' 
-                              ? 'Aguardando' 
-                              : 'Pendente'}
-                          </span>
+                        {/* Preço À Vista (R$) */}
+                        <td className="py-3 px-2 text-right bg-emerald-50/30">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0,00"
+                            value={forn.precoAvista !== undefined ? forn.precoAvista : ''}
+                            onChange={e => atualizarPrecoAvista(forn.id, e.target.value)}
+                            className="w-20 text-right font-mono font-bold text-xs py-1 px-1.5 rounded-lg border border-emerald-300 bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          />
                         </td>
 
-                        {/* Campo para Digitar o Preço Respondido */}
-                        <td className="py-3 px-3 text-right">
-                          <div className="relative inline-block w-full">
-                            <span className="text-[10px] text-slate-400 absolute left-2 top-1/2 -translate-y-1/2 font-mono">
-                              R$
+                        {/* Preço A Prazo (R$) */}
+                        <td className="py-3 px-2 text-right bg-blue-50/30">
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0,00"
+                            value={forn.precoPrazo !== undefined ? forn.precoPrazo : (forn.precoInformado && !forn.precoAvista ? forn.precoInformado : '')}
+                            onChange={e => atualizarPrecoPrazo(forn.id, e.target.value)}
+                            className="w-20 text-right font-mono font-bold text-xs py-1 px-1.5 rounded-lg border border-blue-300 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                        </td>
+
+                        {/* % Desconto no À Vista */}
+                        <td className="py-3 px-2 text-center whitespace-nowrap">
+                          {desconto > 0 ? (
+                            <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-900 font-mono font-bold text-[10px] border border-emerald-300">
+                              {desconto.toFixed(1)}% OFF
                             </span>
-                            <input
-                              type="number"
-                              step="0.01"
-                              placeholder="0,00"
-                              value={forn.precoInformado !== undefined ? forn.precoInformado : ''}
-                              onChange={e => atualizarPrecoFornecedor(forn.id, e.target.value)}
-                              className={`w-full text-right font-mono font-black text-xs py-1 pl-6 pr-2 rounded-lg border focus:outline-none ${
-                                isMenor 
-                                  ? 'border-emerald-500 bg-emerald-50 text-emerald-800' 
-                                  : 'border-slate-300 bg-slate-50/70 text-slate-900 focus:border-amber-500'
+                          ) : (
+                            <span className="text-slate-400 text-[10px]">-</span>
+                          )}
+                        </td>
+
+                        {/* Condição: À Vista ou A Prazo (Padrão: A Prazo se nenhuma for clicada) */}
+                        <td className="py-3 px-2 text-center whitespace-nowrap">
+                          <div className="inline-flex rounded-lg border border-slate-300 p-0.5 bg-slate-100">
+                            <button
+                              type="button"
+                              onClick={() => alternarCondicaoPagamento(forn.id, 'AVISTA')}
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded transition cursor-pointer ${
+                                condicao === 'AVISTA' 
+                                  ? 'bg-emerald-600 text-white shadow-2xs font-black' 
+                                  : 'text-slate-600 hover:text-slate-900'
                               }`}
-                            />
+                            >
+                              À Vista
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => alternarCondicaoPagamento(forn.id, 'PRAZO')}
+                              className={`px-2 py-0.5 text-[10px] font-bold rounded transition cursor-pointer ${
+                                condicao === 'PRAZO' 
+                                  ? 'bg-blue-600 text-white shadow-2xs font-black' 
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              A Prazo
+                            </button>
                           </div>
                         </td>
 
-                        {/* Prazo de Entrega */}
-                        <td className="py-3 px-3 text-center">
-                          <input
-                            type="number"
-                            placeholder="Dias"
-                            value={forn.prazoEntregaDias || ''}
-                            onChange={e => atualizarPrazoFornecedor(forn.id, e.target.value)}
-                            className="w-16 text-center font-mono text-xs py-1 px-1 rounded-lg border border-slate-300 bg-slate-50/70 focus:outline-none focus:border-amber-500"
-                          />
-                        </td>
-
-                        {/* Condições de Pagamento */}
-                        <td className="py-3 px-3">
-                          <input
-                            type="text"
-                            placeholder="Ex: À vista com 5%, 28 DDL..."
-                            value={forn.condicoesPagamento || ''}
-                            onChange={e => atualizarCondicoes(forn.id, e.target.value)}
-                            className="w-full text-xs py-1 px-2 rounded-lg border border-slate-300 bg-slate-50/70 focus:outline-none focus:border-amber-500"
-                          />
+                        {/* Preço Considerado */}
+                        <td className="py-3 px-2 text-right bg-amber-50/50 whitespace-nowrap">
+                          <span className="font-mono font-black text-slate-900 text-xs">
+                            {considerado > 0 ? formatarMoeda(considerado) : '-'}
+                          </span>
                         </td>
 
                         {/* Excluir da Lista */}
-                        <td className="py-3 px-3 text-center">
+                        <td className="py-3 px-2 text-center">
                           <button
                             type="button"
                             onClick={() => removerFornecedor(forn.id)}
                             className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg transition cursor-pointer"
-                            title="Remover este fornecedor da cotação"
+                            title="Remover fornecedor"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -648,7 +717,7 @@ export const CotacaoInsumoModal: React.FC<CotacaoInsumoModalProps> = ({
 
                   {fornecedores.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-slate-400">
+                      <td colSpan={9} className="py-8 text-center text-slate-400">
                         Nenhum fornecedor adicionado à cotação. Use o formulário acima para adicionar contatos.
                       </td>
                     </tr>
